@@ -66,4 +66,5 @@ This project is open-source under the [MIT License](LICENSE).
 
 ---
 
-Built by [Aamir](https://github.com/aamir860) using modern web tools 💡
+Built by [Aamir](https://github.com/aamir860) using modern web tools 💡 make ui trending now a days
+
