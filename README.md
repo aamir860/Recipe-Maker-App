@@ -1,112 +1,180 @@
-// tailwind.config.js (custom theme setup)
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+# SmartCrack.ai App Setup (NCERT + PYQ Import + OpenAI + Supabase Backend + Test Series Upload)
+# Main backend script to be run on Replit
 
-export default defineConfig({
-  plugins: [react()],
-  css: {
-    preprocessorOptions: {
-      scss: {},
-    },
-  },
-});
+# Ensure the required packages are listed in 'requirements.txt':
+# openai
+# supabase-py
 
-// tailwind.config.cjs
-module.exports = {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-  theme: {
-    extend: {
-      fontFamily: {
-        display: ['"Playfair Display"', 'serif'],
-        body: ['Inter', 'sans-serif'],
-      },
-      colors: {
-        luxury: {
-          DEFAULT: '#14532d',
-          light: '#22c55e',
-          dark: '#064e3b',
-        },
-      },
-      boxShadow: {
-        card: '0 10px 30px rgba(0, 0, 0, 0.1)',
-      },
-      backdropBlur: {
-        sm: '4px',
-      },
-    },
-  },
-  plugins: [],
-};
+import os
 
-// src/pages/Home.jsx
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import axios from 'axios';
+# Check for missing packages gracefully
+missing_dependencies = []
 
-export default function Home() {
-  const [ingredients, setIngredients] = useState('');
-  const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(false);
+try:
+    import openai
+except ImportError:
+    openai = None
+    missing_dependencies.append('openai')
 
-  const fetchRecipes = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.post('https://recipe-maker-api.vercel.app/api/recipes', { ingredients });
-      setRecipes(response.data.recipes);
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+try:
+    from supabase import create_client, Client
+except ImportError:
+    create_client = Client = None
+    missing_dependencies.append('supabase-py')
 
-  return (
-    <div className="min-h-screen bg-luxury-dark text-white font-body p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="max-w-xl mx-auto backdrop-blur-sm bg-white/10 rounded-2xl shadow-card p-6"
-      >
-        <h1 className="text-4xl font-display text-luxury-light mb-4">
-          🍽️ Luxury Recipe Maker
-        </h1>
-        <p className="text-lg">
-          Enter your ingredients and discover elegant, AI-curated recipes based on what's in your kitchen.
-        </p>
-        <input
-          type="text"
-          value={ingredients}
-          onChange={(e) => setIngredients(e.target.value)}
-          placeholder="e.g. spinach, cheese, garlic"
-          className="mt-4 w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-luxury-light"
-        />
-        <button
-          onClick={fetchRecipes}
-          className="mt-4 w-full bg-luxury-light text-white font-semibold py-2 px-4 rounded-lg hover:bg-luxury dark:shadow-lg"
-        >
-          {loading ? 'Loading...' : 'Generate Recipe'}
-        </button>
-      </motion.div>
+if missing_dependencies:
+    raise ImportError(
+        f"\n❌ Required packages are missing: {', '.join(missing_dependencies)}."
+        "\nPlease install them via the Replit Packages tab or add them to requirements.txt."
+    )
 
-      <div className="mt-8 space-y-6 max-w-3xl mx-auto">
-        {recipes.map((recipe, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white/10 rounded-2xl shadow-card p-6 backdrop-blur-sm border border-white/10"
-          >
-            <h2 className="text-2xl font-display text-luxury-light mb-3">{recipe.title}</h2>
-            <ul className="list-disc list-inside text-white/90 space-y-1">
-              {recipe.ingredients.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-}
+# ---- Configuration ----
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if openai and not OPENAI_API_KEY:
+    raise EnvironmentError("❌ Please set OPENAI_API_KEY in your Replit Secrets.")
+if create_client and not all([SUPABASE_URL, SUPABASE_KEY]):
+    raise EnvironmentError("❌ Please set SUPABASE_URL and SUPABASE_KEY in your Replit Secrets.")
+
+if openai:
+    openai.api_key = OPENAI_API_KEY
+if create_client:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# ---- NCERT / PYQ Importer ----
+def import_ncert_pyq_to_supabase(file_path, subject, exam_type):
+    if not create_client:
+        print("❌ Supabase not available. Skipping import.")
+        return
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        print(f"❌ File not found: {file_path}")
+        return
+
+    chunks = [chunk.strip() for chunk in content.split('\n\n') if chunk.strip()]
+
+    for chunk in chunks:
+        response = supabase.table("study_material").insert({
+            "subject": subject,
+            "exam": exam_type,
+            "content": chunk
+        }).execute()
+        if hasattr(response, 'error') and response.error:
+            print(f"❌ Error inserting chunk: {response.error}")
+
+    print(f"✅ Imported {len(chunks)} chunks from {file_path}.")
+
+# ---- OpenAI-Powered MCQ Generator ----
+def generate_mcqs(text):
+    if not openai:
+        return "❌ OpenAI API not available in this environment."
+
+    prompt = f"Generate 3 MCQs with 4 options each and correct answers from this content:\n{text}"
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.choices[0].message['content']
+    except Exception as e:
+        return f"❌ Error generating MCQs: {e}"
+
+# ---- Insert generated MCQs into Supabase ----
+def save_mcqs_to_db(mcq_text, subject, exam_type):
+    if not create_client:
+        print("❌ Supabase not available. Skipping MCQ save.")
+        return
+
+    response = supabase.table("mcqs").insert({
+        "subject": subject,
+        "exam": exam_type,
+        "mcq": mcq_text
+    }).execute()
+    if hasattr(response, 'error') and response.error:
+        print(f"❌ Error saving MCQs: {response.error}")
+    else:
+        print("✅ MCQs saved to Supabase.")
+
+# ---- Upload Test Series and Questions to Supabase ----
+def import_test_series(data, exam_name):
+    if not create_client:
+        print("❌ Supabase not available.")
+        return
+
+    exam = supabase.table("exams").select("id").eq("name", exam_name).execute()
+    if exam.data:
+        exam_id = exam.data[0]["id"]
+    else:
+        exam_resp = supabase.table("exams").insert({"name": exam_name}).execute()
+        exam_id = exam_resp.data[0]["id"]
+
+    for ts in data:
+        ts_resp = supabase.table("test_series").insert({
+            "exam_id": exam_id,
+            "title": ts["title"],
+            "total_questions": len(ts["questions"]),
+            "language": ts.get("language", ["English"]),
+            "difficulty": ts.get("difficulty", "Medium"),
+            "price": ts.get("price", 0)
+        }).execute()
+        ts_id = ts_resp.data[0]["id"]
+
+        for q in ts["questions"]:
+            supabase.table("questions").insert({
+                "test_series_id": ts_id,
+                "question": q["question"],
+                "options": q["options"],
+                "answer": q["answer"],
+                "tags": q.get("tags", []),
+                "difficulty": q.get("difficulty", "Medium")
+            }).execute()
+
+    print(f"✅ Imported {len(data)} test series for '{exam_name}'.")
+
+# ---- Example Usage ----
+if __name__ == "__main__":
+    example_file = "ncert_history_class6.txt"
+    if os.path.exists(example_file):
+        import_ncert_pyq_to_supabase(example_file, "History", "UPSSSC")
+
+        sample_text = "The Harappan civilization was the first urban civilization of the Indian subcontinent."
+        mcqs = generate_mcqs(sample_text)
+        print("\nGenerated MCQs:\n", mcqs)
+        save_mcqs_to_db(mcqs, "History", "UPSSSC")
+    else:
+        print(f"❌ Example file '{example_file}' not found. Please upload it to the Replit workspace.")
+
+    # Sample Test Series Import
+    sample_test_series = [
+        {
+            "title": "SSC CGL Tier-I Mock Test #1",
+            "difficulty": "Medium",
+            "price": 0,
+            "language": ["English", "Hindi"],
+            "questions": [
+                {
+                    "question": "What is the value of √144?",
+                    "options": ["10", "11", "12", "13"],
+                    "answer": "12",
+                    "tags": ["Maths", "Square Roots"],
+                    "difficulty": "Easy"
+                },
+                
+                {
+                    "question": "What is the capital of France?",
+                    "options": ["Berlin", "Madrid", "Paris", "Lisbon"],
+                    "answer": "Paris",
+                    "tags": ["Static GK", "Geography"]
+                }
+            ]
+        }
+    ]
+
+    import_test_series(sample_test_series, "SSC CGL")
