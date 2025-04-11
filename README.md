@@ -1,70 +1,112 @@
-# Recipe-Maker-App# Recipe Maker App
+// tailwind.config.js (custom theme setup)
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-A sleek and simple AI-powered recipe generator built with React, Tailwind CSS, and the Spoonacular API. Enter ingredients manually or via voice input and get recipe suggestions instantly. Perfect for creating delicious meals from what’s already in your fridge!
+export default defineConfig({
+  plugins: [react()],
+  css: {
+    preprocessorOptions: {
+      scss: {},
+    },
+  },
+});
 
-## 🌐 Live Demo
-👉 [https://recipe-maker.vercel.app](https://recipe-maker.vercel.app)
+// tailwind.config.cjs
+module.exports = {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      fontFamily: {
+        display: ['"Playfair Display"', 'serif'],
+        body: ['Inter', 'sans-serif'],
+      },
+      colors: {
+        luxury: {
+          DEFAULT: '#14532d',
+          light: '#22c55e',
+          dark: '#064e3b',
+        },
+      },
+      boxShadow: {
+        card: '0 10px 30px rgba(0, 0, 0, 0.1)',
+      },
+      backdropBlur: {
+        sm: '4px',
+      },
+    },
+  },
+  plugins: [],
+};
 
-## ✨ Features
-- Voice-to-text ingredient input
-- Recipe suggestions via Spoonacular API
-- Vegetarian-only toggle
-- Calorie limit filter
-- Mark and store favorites
-- Simple meal planner view
+// src/pages/Home.jsx
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import axios from 'axios';
 
-## 🧰 Tech Stack
-- **React** + **Vite**
-- **Tailwind CSS**
-- **Spoonacular API**
-- **Vercel** (deployment)
-- **localStorage** (favorites)
+export default function Home() {
+  const [ingredients, setIngredients] = useState('');
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-## 🚀 Getting Started
+  const fetchRecipes = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post('https://recipe-maker-api.vercel.app/api/recipes', { ingredients });
+      setRecipes(response.data.recipes);
+    } catch (error) {
+      console.error('Error fetching recipes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/aamir860/Recipe-Maker-App.git
-cd Recipe-Maker-App
-```
+  return (
+    <div className="min-h-screen bg-luxury-dark text-white font-body p-6">
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="max-w-xl mx-auto backdrop-blur-sm bg-white/10 rounded-2xl shadow-card p-6"
+      >
+        <h1 className="text-4xl font-display text-luxury-light mb-4">
+          🍽️ Luxury Recipe Maker
+        </h1>
+        <p className="text-lg">
+          Enter your ingredients and discover elegant, AI-curated recipes based on what's in your kitchen.
+        </p>
+        <input
+          type="text"
+          value={ingredients}
+          onChange={(e) => setIngredients(e.target.value)}
+          placeholder="e.g. spinach, cheese, garlic"
+          className="mt-4 w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-luxury-light"
+        />
+        <button
+          onClick={fetchRecipes}
+          className="mt-4 w-full bg-luxury-light text-white font-semibold py-2 px-4 rounded-lg hover:bg-luxury dark:shadow-lg"
+        >
+          {loading ? 'Loading...' : 'Generate Recipe'}
+        </button>
+      </motion.div>
 
-### 2. Install Dependencies
-```bash
-npm install
-```
-
-### 3. Configure Environment Variables
-Create a `.env.local` file at the root of the project:
-```bash
-VITE_SPOONACULAR_API_KEY=your_api_key_here
-```
-➡️ You can get an API key from [spoonacular.com/food-api](https://spoonacular.com/food-api)
-
-### 4. Run the App Locally
-```bash
-npm run dev
-```
-
-## 🧪 Test Cases
-✅ Add custom ingredients like "tomato, cheese"
-✅ Click voice icon and speak ingredients
-✅ Toggle vegetarian-only and low calorie filters
-✅ Favorite a recipe and reload the app to verify it's saved
-
-## 📦 Deployment on Vercel
-1. Push the code to GitHub
-2. Go to [https://vercel.com](https://vercel.com) → Import the repo
-3. Set Environment Variable:
-   - `VITE_SPOONACULAR_API_KEY=your_api_key`
-4. Click Deploy 🚀
-
-## 📸 Screenshots
-_You can add UI screenshots or GIFs here._
-
-## 📄 License
-This project is open-source under the [MIT License](LICENSE).
-
----
-
-Built by [Aamir](https://github.com/aamir860) using modern web tools 💡 make ui trending now a days
-
+      <div className="mt-8 space-y-6 max-w-3xl mx-auto">
+        {recipes.map((recipe, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="bg-white/10 rounded-2xl shadow-card p-6 backdrop-blur-sm border border-white/10"
+          >
+            <h2 className="text-2xl font-display text-luxury-light mb-3">{recipe.title}</h2>
+            <ul className="list-disc list-inside text-white/90 space-y-1">
+              {recipe.ingredients.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
